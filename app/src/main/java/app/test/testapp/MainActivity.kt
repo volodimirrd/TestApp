@@ -1,17 +1,34 @@
 package app.test.testapp
 
+import android.Manifest
+import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
-import android.support.design.widget.Snackbar
+import android.support.v4.app.ActivityCompat
 import android.support.v7.app.AppCompatActivity;
-import android.view.Menu
-import android.view.MenuItem
+import android.view.View
+import android.widget.Toast
+import app.test.testapp.utils.FileUtils
 
 import kotlinx.android.synthetic.main.activity_main.*
+import java.io.File
+import android.os.StrictMode
+
+
+
 
 class MainActivity : AppCompatActivity() {
+
+    private val CAMERA_REQUEST = 1888
+    private val MY_CAMERA_PERMISSION_CODE = 100
+    private val MY_STORAGE_WRITE_PERMISSION_CODE = 101
+    private var directory : File? = null
+    private var currentFilePathUri : Uri? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -21,32 +38,81 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initView(){
-        takePhotoFab.setOnClickListener { view ->
-            val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-            startActivityForResult(intent,0)
-//            Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-//                .setAction("Action", null).show()
+        val builder = StrictMode.VmPolicy.Builder()
+        StrictMode.setVmPolicy(builder.build())
+        if(directory == null){
+            createDirectory()
         }
+        takePhotoFab.setOnClickListener { view -> onTakePhotoClick(view) }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        val bitmap = data?.extras?.get("data") as Bitmap
-    }
-
-    override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        menuInflater.inflate(R.menu.menu_main, menu)
-        return true
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        return when (item.itemId) {
-            R.id.action_settings -> true
-            else -> super.onOptionsItemSelected(item)
+        if(requestCode == CAMERA_REQUEST && resultCode == Activity.RESULT_OK){
+            val bitmap = MediaStore.Images.Media.getBitmap(contentResolver, currentFilePathUri)
+            if(bitmap!=null){
+             bitmap as Bitmap
+                setNewImage(bitmap)
+            }
         }
+    }
+
+    private fun onTakePhotoClick(view: View){
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M){
+            if(ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED){
+                requestPermissions(arrayOf(Manifest.permission.CAMERA),
+                    MY_CAMERA_PERMISSION_CODE)
+            } else{
+                starCamera()
+            }
+        } else{
+            starCamera()
+        }
+    }
+
+    private fun createDirectory(){
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M){
+            if(ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED){
+                requestPermissions(arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
+                    MY_STORAGE_WRITE_PERMISSION_CODE)
+            } else{
+                directory = FileUtils.createDirectory()
+            }
+        }
+        else {
+            directory = FileUtils.createDirectory()
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if(requestCode == MY_CAMERA_PERMISSION_CODE){
+            if(grantResults[0] == PackageManager.PERMISSION_GRANTED){
+                starCamera()
+            } else{
+                Toast.makeText(this, "camera permission denied", Toast.LENGTH_LONG).show();
+            }
+        } else if(requestCode == MY_STORAGE_WRITE_PERMISSION_CODE){
+            if(grantResults[0] == PackageManager.PERMISSION_GRANTED){
+                directory = FileUtils.createDirectory()
+            } else{
+                Toast.makeText(this, "write storage permission denied", Toast.LENGTH_LONG).show();
+            }
+        }
+    }
+
+    private fun starCamera(){
+        if(directory != null){
+            val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
+            currentFilePathUri = FileUtils.generateFileUri(directory!!)
+            intent.putExtra(MediaStore.EXTRA_OUTPUT, currentFilePathUri)
+            startActivityForResult(intent, CAMERA_REQUEST)
+        }
+    }
+
+    private fun setNewImage(bitmap:Bitmap){
+        photoImageView.setImageBitmap(bitmap)
     }
 }
