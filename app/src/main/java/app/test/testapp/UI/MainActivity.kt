@@ -2,6 +2,7 @@ package app.test.testapp.UI
 
 import android.Manifest
 import android.app.Activity
+import android.app.ProgressDialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -19,9 +20,12 @@ import java.io.File
 import android.os.StrictMode
 import java.io.IOException
 import app.test.testapp.R
+import app.test.testapp.storage.GlideApp
 import app.test.testapp.storage.ImageStorage
+import com.bumptech.glide.load.engine.DiskCacheStrategy
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), UploadingListener {
+
 
     private val CAMERA_REQUEST = 1888
     private val MY_CAMERA_PERMISSION_CODE = 100
@@ -29,6 +33,7 @@ class MainActivity : AppCompatActivity() {
     private var directory : File? = null
     private var currentFilePathUri : Uri? = null
     private lateinit var repository: ImageStorage
+    private var progressDialog : ProgressDialog? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,9 +49,10 @@ class MainActivity : AppCompatActivity() {
         if(directory == null){
             createDirectory()
         }
+        progressDialog = ProgressDialog(this)
 
         repository = ImageStorage(this)
-        repository.downloadImage(photoImageView)
+        loadImage()
         takePhotoFab.setOnClickListener { view -> onTakePhotoClick(view) }
     }
 
@@ -58,7 +64,7 @@ class MainActivity : AppCompatActivity() {
                 if(bitmap!=null){
                     bitmap as Bitmap
                     setNewImage(bitmap)
-                    repository.uploadImage(currentFilePathUri)
+                    repository.uploadImage(currentFilePathUri, this)
                 }
             }
             catch (e: IOException){
@@ -124,5 +130,32 @@ class MainActivity : AppCompatActivity() {
 
     private fun setNewImage(bitmap:Bitmap){
         photoImageView.setImageBitmap(bitmap)
+    }
+
+    private fun loadImage(){
+        val ref = repository.getImageReference()
+
+        GlideApp.with(this)
+            .load(ref)
+            .diskCacheStrategy(DiskCacheStrategy.NONE)
+            .skipMemoryCache(true)
+            .into(photoImageView)
+    }
+
+    override fun showToast(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+    }
+
+    override fun showProgressDialog(title:String) {
+        progressDialog?.setTitle(title)
+        progressDialog?.show()
+    }
+
+    override fun closeProgressDialog() {
+        progressDialog?.dismiss()
+    }
+
+    override fun setCurrentProgressing(progress:Int) {
+        progressDialog?.setMessage("Uploaded $progress%")
     }
 }
