@@ -1,4 +1,4 @@
-package app.test.testapp
+package app.test.testapp.UI
 
 import android.Manifest
 import android.app.Activity
@@ -18,11 +18,8 @@ import kotlinx.android.synthetic.main.activity_main.*
 import java.io.File
 import android.os.StrictMode
 import java.io.IOException
-import android.app.ProgressDialog
-import android.provider.Settings.Secure
-import com.bumptech.glide.load.engine.DiskCacheStrategy
-import com.google.firebase.storage.*
-
+import app.test.testapp.R
+import app.test.testapp.storage.ImageStorage
 
 class MainActivity : AppCompatActivity() {
 
@@ -31,17 +28,12 @@ class MainActivity : AppCompatActivity() {
     private val MY_STORAGE_WRITE_PERMISSION_CODE = 101
     private var directory : File? = null
     private var currentFilePathUri : Uri? = null
-    private var uniqueId: String? = null
-
-    private var storage: FirebaseStorage? = null
-    private var storageReference: StorageReference? = null
+    private lateinit var repository: ImageStorage
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        storage = FirebaseStorage.getInstance()
-        storageReference = storage?.reference
         setSupportActionBar(toolbar)
         initView()
     }
@@ -52,8 +44,9 @@ class MainActivity : AppCompatActivity() {
         if(directory == null){
             createDirectory()
         }
-        setUniqueId()
-        downloadImage()
+
+        repository = ImageStorage(this)
+        repository.downloadImage(photoImageView)
         takePhotoFab.setOnClickListener { view -> onTakePhotoClick(view) }
     }
 
@@ -65,23 +58,13 @@ class MainActivity : AppCompatActivity() {
                 if(bitmap!=null){
                     bitmap as Bitmap
                     setNewImage(bitmap)
-                    uploadImage()
+                    repository.uploadImage(currentFilePathUri)
                 }
             }
             catch (e: IOException){
                 e.printStackTrace()
             }
         }
-    }
-
-    private fun downloadImage(){
-        val islandRef = storageReference?.child("images/$uniqueId")
-
-        GlideApp.with(this)
-            .load(islandRef)
-            .diskCacheStrategy(DiskCacheStrategy.NONE)
-            .skipMemoryCache(true)
-            .into(photoImageView)
     }
 
     private fun onTakePhotoClick(view: View){
@@ -141,33 +124,5 @@ class MainActivity : AppCompatActivity() {
 
     private fun setNewImage(bitmap:Bitmap){
         photoImageView.setImageBitmap(bitmap)
-    }
-
-    private fun setUniqueId(){
-        uniqueId = Secure.getString(this.getContentResolver(), Secure.ANDROID_ID)
-    }
-
-    private fun uploadImage() {
-        if (currentFilePathUri != null) {
-            val progressDialog = ProgressDialog(this)
-            progressDialog.setTitle("Uploading...")
-            progressDialog.show()
-
-            val ref = storageReference?.child("images/$uniqueId")
-            ref?.putFile(currentFilePathUri!!)
-                ?.addOnSuccessListener {
-                    progressDialog.dismiss()
-                    Toast.makeText(this, "Uploaded", Toast.LENGTH_SHORT).show()
-                }
-                ?.addOnFailureListener { e ->
-                    progressDialog.dismiss()
-                    Toast.makeText(this, "Failed " + e.message, Toast.LENGTH_SHORT).show()
-                }
-                ?.addOnProgressListener { taskSnapshot ->
-                    val progress = 100.0 * taskSnapshot.bytesTransferred / taskSnapshot
-                        .totalByteCount
-                    progressDialog.setMessage("Uploaded " + progress.toInt() + "%")
-                }
-        }
     }
 }
