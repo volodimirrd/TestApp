@@ -2,11 +2,11 @@ package app.test.testapp.UI
 
 interface UploadingListener {
 
-    fun showToast(message: String)
+    fun onError()
 
-    fun showProgressDialog(title:String)
+    fun onSuccess()
 
-    fun closeProgressDialog()
+    fun onStartUploading()
 
     fun setCurrentProgressing(progress: Int)
 }

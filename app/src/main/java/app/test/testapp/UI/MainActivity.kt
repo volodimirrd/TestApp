@@ -9,6 +9,7 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.StrictMode
 import android.provider.MediaStore
 import android.support.v4.app.ActivityCompat
 import android.support.v7.app.AppCompatActivity;
@@ -17,7 +18,6 @@ import android.widget.Toast
 import app.test.testapp.utils.FileUtils
 import kotlinx.android.synthetic.main.activity_main.*
 import java.io.File
-import android.os.StrictMode
 import java.io.IOException
 import app.test.testapp.R
 import app.test.testapp.storage.GlideApp
@@ -26,13 +26,11 @@ import com.bumptech.glide.load.engine.DiskCacheStrategy
 
 class MainActivity : AppCompatActivity(), UploadingListener {
 
-
     private val CAMERA_REQUEST = 1888
     private val MY_CAMERA_PERMISSION_CODE = 100
     private val MY_STORAGE_WRITE_PERMISSION_CODE = 101
     private var directory : File? = null
     private var currentFilePathUri : Uri? = null
-    private lateinit var repository: ImageStorage
     private var progressDialog : ProgressDialog? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -46,14 +44,9 @@ class MainActivity : AppCompatActivity(), UploadingListener {
     private fun initView(){
         val builder = StrictMode.VmPolicy.Builder()
         StrictMode.setVmPolicy(builder.build())
-        if(directory == null){
-            createDirectory()
-        }
-        progressDialog = ProgressDialog(this)
 
-        repository = ImageStorage(this)
-        loadImage()
         takePhotoFab.setOnClickListener { view -> onTakePhotoClick(view) }
+        loadImage()
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -64,33 +57,32 @@ class MainActivity : AppCompatActivity(), UploadingListener {
                 if(bitmap!=null){
                     bitmap as Bitmap
                     setNewImage(bitmap)
-                    repository.uploadImage(currentFilePathUri, this)
+                    ImageStorage.instance.uploadImage(currentFilePathUri, this)
                 }
             }
             catch (e: IOException){
                 e.printStackTrace()
+                Toast.makeText(this, e.localizedMessage, Toast.LENGTH_SHORT).show()
             }
         }
     }
 
     private fun onTakePhotoClick(view: View){
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M){
-            if(ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-                != PackageManager.PERMISSION_GRANTED){
+            if(ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED){
                 requestPermissions(arrayOf(Manifest.permission.CAMERA),
                     MY_CAMERA_PERMISSION_CODE)
             } else{
-                starCamera()
+                startCamera()
             }
         } else{
-            starCamera()
+            startCamera()
         }
     }
 
     private fun createDirectory(){
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M){
-            if(ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                != PackageManager.PERMISSION_GRANTED){
+            if(ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED){
                 requestPermissions(arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
                     MY_STORAGE_WRITE_PERMISSION_CODE)
             } else{
@@ -106,21 +98,23 @@ class MainActivity : AppCompatActivity(), UploadingListener {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if(requestCode == MY_CAMERA_PERMISSION_CODE){
             if(grantResults[0] == PackageManager.PERMISSION_GRANTED){
-                starCamera()
+                startCamera()
             } else{
-                Toast.makeText(this, "camera permission denied", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, R.string.camera_denied, Toast.LENGTH_LONG).show();
             }
         } else if(requestCode == MY_STORAGE_WRITE_PERMISSION_CODE){
             if(grantResults[0] == PackageManager.PERMISSION_GRANTED){
                 directory = FileUtils.createDirectory()
             } else{
-                Toast.makeText(this, "write storage permission denied", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, R.string.storage_denied, Toast.LENGTH_LONG).show();
             }
         }
     }
 
-    private fun starCamera(){
-        if(directory != null){
+    private fun startCamera(){
+        if(directory == null){
+            createDirectory()
+        } else{
             val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
             currentFilePathUri = FileUtils.generateFileUri(directory!!)
             intent.putExtra(MediaStore.EXTRA_OUTPUT, currentFilePathUri)
@@ -133,7 +127,7 @@ class MainActivity : AppCompatActivity(), UploadingListener {
     }
 
     private fun loadImage(){
-        val ref = repository.getImageReference()
+        val ref = ImageStorage.instance.getImageReference()
 
         GlideApp.with(this)
             .load(ref)
@@ -142,20 +136,25 @@ class MainActivity : AppCompatActivity(), UploadingListener {
             .into(photoImageView)
     }
 
-    override fun showToast(message: String) {
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
-    }
-
-    override fun showProgressDialog(title:String) {
-        progressDialog?.setTitle(title)
+    override fun onStartUploading() {
+        progressDialog = ProgressDialog(this)
+        progressDialog?.setTitle(R.string.uploading)
         progressDialog?.show()
-    }
-
-    override fun closeProgressDialog() {
-        progressDialog?.dismiss()
     }
 
     override fun setCurrentProgressing(progress:Int) {
         progressDialog?.setMessage("Uploaded $progress%")
     }
+
+    override fun onError() {
+        progressDialog?.dismiss()
+        Toast.makeText(this, R.string.failed, Toast.LENGTH_SHORT).show()
+    }
+
+    override fun onSuccess() {
+        progressDialog?.dismiss()
+        Toast.makeText(this, "Uploaded", Toast.LENGTH_SHORT).show()
+    }
+
+
 }
