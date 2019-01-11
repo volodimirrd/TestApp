@@ -153,8 +153,6 @@ class MainActivity : AppCompatActivity(), UploadingListener {
 
     override fun onSuccess() {
         progressDialog?.dismiss()
-        Toast.makeText(this, "Uploaded", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, R.string.uploaded, Toast.LENGTH_SHORT).show()
     }
-
-
 }
