@@ -17,18 +17,11 @@ import app.test.testapp.utils.FileUtils
 import kotlinx.android.synthetic.main.activity_main.*
 import java.io.File
 import android.os.StrictMode
-import com.google.firebase.storage.FirebaseStorage
-import com.google.firebase.storage.StorageReference
 import java.io.IOException
-import com.google.firebase.storage.UploadTask
-import com.google.firebase.storage.OnProgressListener
-import android.support.annotation.NonNull
-import com.google.android.gms.tasks.OnFailureListener
-import com.google.android.gms.tasks.OnSuccessListener
-import java.util.UUID.randomUUID
 import android.app.ProgressDialog
-import com.bumptech.glide.Glide
-import java.util.*
+import android.provider.Settings.Secure
+import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.google.firebase.storage.*
 
 
 class MainActivity : AppCompatActivity() {
@@ -38,18 +31,19 @@ class MainActivity : AppCompatActivity() {
     private val MY_STORAGE_WRITE_PERMISSION_CODE = 101
     private var directory : File? = null
     private var currentFilePathUri : Uri? = null
+    private var uniqueId: String? = null
 
-    var storage: FirebaseStorage? = null
-    var storageReference: StorageReference? = null
+    private var storage: FirebaseStorage? = null
+    private var storageReference: StorageReference? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        initView()
 
-        storage = FirebaseStorage.getInstance();
-        storageReference = storage?.getReference();
+        storage = FirebaseStorage.getInstance()
+        storageReference = storage?.reference
         setSupportActionBar(toolbar)
+        initView()
     }
 
     private fun initView(){
@@ -58,6 +52,8 @@ class MainActivity : AppCompatActivity() {
         if(directory == null){
             createDirectory()
         }
+        setUniqueId()
+        downloadImage()
         takePhotoFab.setOnClickListener { view -> onTakePhotoClick(view) }
     }
 
@@ -69,20 +65,22 @@ class MainActivity : AppCompatActivity() {
                 if(bitmap!=null){
                     bitmap as Bitmap
                     setNewImage(bitmap)
-             //       uploadFiles()
+                    uploadImage()
                 }
             }
             catch (e: IOException){
                 e.printStackTrace()
             }
-
         }
     }
 
-    private fun uploadFiles(){
+    private fun downloadImage(){
+        val islandRef = storageReference?.child("images/$uniqueId")
 
-        Glide.with(this)
-            .load(storageReference)
+        GlideApp.with(this)
+            .load(islandRef)
+            .diskCacheStrategy(DiskCacheStrategy.NONE)
+            .skipMemoryCache(true)
             .into(photoImageView)
     }
 
@@ -145,22 +143,25 @@ class MainActivity : AppCompatActivity() {
         photoImageView.setImageBitmap(bitmap)
     }
 
-    private fun uploadImage() {
+    private fun setUniqueId(){
+        uniqueId = Secure.getString(this.getContentResolver(), Secure.ANDROID_ID)
+    }
 
+    private fun uploadImage() {
         if (currentFilePathUri != null) {
             val progressDialog = ProgressDialog(this)
             progressDialog.setTitle("Uploading...")
             progressDialog.show()
 
-            val ref = storageReference?.child("images/" + UUID.randomUUID().toString())
+            val ref = storageReference?.child("images/$uniqueId")
             ref?.putFile(currentFilePathUri!!)
                 ?.addOnSuccessListener {
                     progressDialog.dismiss()
-                    Toast.makeText(this@MainActivity, "Uploaded", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Uploaded", Toast.LENGTH_SHORT).show()
                 }
                 ?.addOnFailureListener { e ->
                     progressDialog.dismiss()
-                    Toast.makeText(this@MainActivity, "Failed " + e.message, Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Failed " + e.message, Toast.LENGTH_SHORT).show()
                 }
                 ?.addOnProgressListener { taskSnapshot ->
                     val progress = 100.0 * taskSnapshot.bytesTransferred / taskSnapshot
