@@ -46,6 +46,7 @@ class MainActivity : AppCompatActivity(), UploadingListener {
         StrictMode.setVmPolicy(builder.build())
 
         takePhotoFab.setOnClickListener { view -> onTakePhotoClick(view) }
+        createDirectory()
         loadImage()
     }
 
@@ -112,14 +113,13 @@ class MainActivity : AppCompatActivity(), UploadingListener {
     }
 
     private fun startCamera(){
-        if(directory == null){
-            createDirectory()
-        } else{
+        if(directory != null){
             val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
             currentFilePathUri = FileUtils.generateFileUri(directory!!)
             intent.putExtra(MediaStore.EXTRA_OUTPUT, currentFilePathUri)
             startActivityForResult(intent, CAMERA_REQUEST)
         }
+
     }
 
     private fun setNewImage(bitmap:Bitmap){
