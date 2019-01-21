@@ -17,26 +17,22 @@ import android.view.View
 import android.widget.Toast
 import app.test.testapp.utils.FileUtils
 import kotlinx.android.synthetic.main.activity_main.*
-import java.io.File
 import java.io.IOException
 import app.test.testapp.R
 import app.test.testapp.storage.GlideApp
 import app.test.testapp.storage.ImageStorage
 import com.bumptech.glide.load.engine.DiskCacheStrategy
+import java.lang.Exception
 
 class MainActivity : AppCompatActivity(), UploadingListener {
 
     private val CAMERA_REQUEST = 1888
     private val MY_CAMERA_PERMISSION_CODE = 100
-    private val MY_STORAGE_WRITE_PERMISSION_CODE = 101
-    private var directory : File? = null
-    private var currentFilePathUri : Uri? = null
     private var progressDialog : ProgressDialog? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-
         setSupportActionBar(toolbar)
         initView()
     }
@@ -46,7 +42,6 @@ class MainActivity : AppCompatActivity(), UploadingListener {
         StrictMode.setVmPolicy(builder.build())
 
         takePhotoFab.setOnClickListener { view -> onTakePhotoClick(view) }
-        createDirectory()
         loadImage()
     }
 
@@ -54,12 +49,10 @@ class MainActivity : AppCompatActivity(), UploadingListener {
         super.onActivityResult(requestCode, resultCode, data)
         if(requestCode == CAMERA_REQUEST && resultCode == Activity.RESULT_OK){
             try{
-                val bitmap = MediaStore.Images.Media.getBitmap(contentResolver, currentFilePathUri)
-                if(bitmap!=null){
-                    bitmap as Bitmap
-                    setNewImage(bitmap)
-                    ImageStorage.instance.uploadImage(currentFilePathUri, this)
-                }
+                val bitmap = data?.extras?.get("data") as Bitmap
+                setNewImage(bitmap)
+                val saveFileUri = FileUtils.saveBitmap(bitmap)
+                ImageStorage.instance.uploadImage(saveFileUri, this)
             }
             catch (e: IOException){
                 e.printStackTrace()
@@ -81,20 +74,6 @@ class MainActivity : AppCompatActivity(), UploadingListener {
         }
     }
 
-    private fun createDirectory(){
-        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M){
-            if(ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED){
-                requestPermissions(arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
-                    MY_STORAGE_WRITE_PERMISSION_CODE)
-            } else{
-                directory = FileUtils.createDirectory()
-            }
-        }
-        else {
-            directory = FileUtils.createDirectory()
-        }
-    }
-
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if(requestCode == MY_CAMERA_PERMISSION_CODE){
@@ -103,27 +82,17 @@ class MainActivity : AppCompatActivity(), UploadingListener {
             } else{
                 Toast.makeText(this, R.string.camera_denied, Toast.LENGTH_LONG).show();
             }
-        } else if(requestCode == MY_STORAGE_WRITE_PERMISSION_CODE){
-            if(grantResults[0] == PackageManager.PERMISSION_GRANTED){
-                directory = FileUtils.createDirectory()
-            } else{
-                Toast.makeText(this, R.string.storage_denied, Toast.LENGTH_LONG).show();
-            }
         }
     }
 
     private fun startCamera(){
-        if(directory != null){
-            val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-            currentFilePathUri = FileUtils.generateFileUri(directory!!)
-            intent.putExtra(MediaStore.EXTRA_OUTPUT, currentFilePathUri)
-            startActivityForResult(intent, CAMERA_REQUEST)
-        }
-
+        val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
+        startActivityForResult(intent, CAMERA_REQUEST)
     }
 
     private fun setNewImage(bitmap:Bitmap){
         photoImageView.setImageBitmap(bitmap)
+
     }
 
     private fun loadImage(){
@@ -146,7 +115,7 @@ class MainActivity : AppCompatActivity(), UploadingListener {
         progressDialog?.setMessage("Uploaded $progress%")
     }
 
-    override fun onError() {
+    override fun onError(e: Exception) {
         progressDialog?.dismiss()
         Toast.makeText(this, R.string.failed, Toast.LENGTH_SHORT).show()
     }
