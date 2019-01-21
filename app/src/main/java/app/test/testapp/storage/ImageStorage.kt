@@ -3,7 +3,7 @@ package app.test.testapp.storage
 import android.annotation.SuppressLint
 import android.net.Uri
 import android.provider.Settings
-import app.test.testapp.TestAppApplication
+import app.test.testapp.Injector
 import app.test.testapp.UI.UploadingListener
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageReference
@@ -15,7 +15,7 @@ class ImageStorage{
     }
 
     @SuppressLint("HardwareIds")
-    private var uniqueId: String = Settings.Secure.getString(TestAppApplication.instance.contentResolver, Settings.Secure.ANDROID_ID)
+    private var uniqueId: String = Settings.Secure.getString(Injector.context.contentResolver, Settings.Secure.ANDROID_ID)
 
     fun uploadImage(currentFilePathUri : Uri?, listener: UploadingListener) {
         if (currentFilePathUri != null) {
