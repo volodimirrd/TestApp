@@ -2,7 +2,7 @@ package app.test.testapp.UI
 
 interface UploadingListener {
 
-    fun onError()
+    fun onError(e: Exception)
 
     fun onSuccess()
 

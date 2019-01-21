@@ -1,5 +1,6 @@
 package app.test.testapp.storage
 
+import android.annotation.SuppressLint
 import android.net.Uri
 import android.provider.Settings
 import app.test.testapp.TestAppApplication
@@ -13,21 +14,22 @@ class ImageStorage{
          val instance: ImageStorage = ImageStorage()
     }
 
-    private var uniqueId: String = Settings.Secure.getString(TestAppApplication.instance.getContentResolver(), Settings.Secure.ANDROID_ID)
+    @SuppressLint("HardwareIds")
+    private var uniqueId: String = Settings.Secure.getString(TestAppApplication.instance.contentResolver, Settings.Secure.ANDROID_ID)
 
     fun uploadImage(currentFilePathUri : Uri?, listener: UploadingListener) {
         if (currentFilePathUri != null) {
             listener.onStartUploading()
 
-            val ref = FirebaseStorage.getInstance().reference.child("images/$uniqueId")
-            ref.putFile(currentFilePathUri)
-                .addOnSuccessListener {
+            val ref = getImageReference()
+            ref?.putFile(currentFilePathUri)
+                ?.addOnSuccessListener {
                     listener.onSuccess()
                 }
-                .addOnFailureListener { e ->
-                    listener.onError()
+                ?.addOnFailureListener { e ->
+                    listener.onError(e)
                 }
-                .addOnProgressListener { taskSnapshot ->
+                ?.addOnProgressListener { taskSnapshot ->
                     val progress = 100.0 * taskSnapshot.bytesTransferred / taskSnapshot.totalByteCount
                     listener.setCurrentProgressing(progress.toInt())
                 }
