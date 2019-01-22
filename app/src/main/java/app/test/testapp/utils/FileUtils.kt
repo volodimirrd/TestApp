@@ -4,17 +4,27 @@ import android.content.Context.MODE_PRIVATE
 import android.graphics.Bitmap
 import android.net.Uri
 import app.test.testapp.Injector
+import java.io.FileOutputStream
 import java.io.IOException
 
 
 object FileUtils {
     fun saveBitmap(bitmap: Bitmap): Uri{
+        var fos : FileOutputStream? = null
         val fileName = generateFileName()
         try{
-            val fos = Injector.context.openFileOutput(fileName, MODE_PRIVATE)
+            fos = Injector.context.openFileOutput(fileName, MODE_PRIVATE)
             bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos)
         } catch (e: IOException){
             e.printStackTrace()
+        }
+        finally {
+            try {
+                fos?.close()
+            }
+            catch (exception: Exception){
+                exception.printStackTrace()
+            }
         }
         return getFileUri(fileName)
     }
